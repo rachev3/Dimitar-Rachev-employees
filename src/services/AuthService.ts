@@ -1,6 +1,6 @@
 import { Service } from "typedi";
 import { User, IUser } from "../models/User";
-import jwt, { SignOptions, Secret } from "jsonwebtoken";
+import jwt, { SignOptions } from "jsonwebtoken";
 import bcrypt from "bcrypt";
 import { ENV } from "../config/env";
 import {
@@ -9,57 +9,21 @@ import {
   ConflictError,
   ValidationError,
 } from "../utils/errors";
-
-interface RegisterInput {
-  username: string;
-  password: string;
-}
-
-interface LoginInput {
-  username: string;
-  password: string;
-}
-
-interface UpdateUserInput {
-  username?: string;
-  password?: string;
-}
+import { RegisterDto, LoginDto, UpdateUserDto } from "../dtos/AuthDto";
 
 @Service()
 export class AuthService {
-  private validateRegisterInput(input: any): asserts input is RegisterInput {
-    if (!input?.username || typeof input.username !== "string") {
-      throw new ValidationError("Username is required and must be a string");
-    }
-    if (!input?.password || typeof input.password !== "string") {
-      throw new ValidationError("Password is required and must be a string");
-    }
-  }
-
-  private validateLoginInput(input: any): asserts input is LoginInput {
-    if (!input?.username || typeof input.username !== "string") {
-      throw new ValidationError("Username is required and must be a string");
-    }
-    if (!input?.password || typeof input.password !== "string") {
-      throw new ValidationError("Password is required and must be a string");
-    }
-  }
-
-  private validateUpdateInput(input: any): asserts input is UpdateUserInput {
-    if (input?.username !== undefined && typeof input.username !== "string") {
-      throw new ValidationError("Username must be a string");
-    }
-    if (input?.password !== undefined && typeof input.password !== "string") {
-      throw new ValidationError("Password must be a string");
-    }
-  }
-
-  async register(input: any, role: "admin" | "user" = "user"): Promise<IUser> {
-    this.validateRegisterInput(input);
-
+  async register(
+    input: RegisterDto,
+    role: "admin" | "user" = "user"
+  ): Promise<IUser> {
     const existingUser = await User.findOne({ username: input.username });
     if (existingUser) {
-      throw new ConflictError("User already exists");
+      throw new ConflictError(
+        "User already exists",
+        "username",
+        input.username
+      );
     }
 
     const salt = await bcrypt.genSalt(10);
@@ -75,9 +39,7 @@ export class AuthService {
     return user;
   }
 
-  async login(input: any): Promise<{ token: string; user: IUser }> {
-    this.validateLoginInput(input);
-
+  async login(input: LoginDto): Promise<{ token: string; user: IUser }> {
     const user = await User.findOne({ username: input.username });
     if (!user) {
       throw new AuthenticationError("Invalid credentials");
@@ -89,10 +51,11 @@ export class AuthService {
     }
 
     const payload = { id: user.id, username: user.username, role: user.role };
-    // @ts-ignore
-    const token = jwt.sign(payload, ENV.JWT_SECRET, {
-      expiresIn: ENV.JWT_EXPIRATION,
-    });
+    const token = jwt.sign(
+      payload,
+      ENV.JWT_SECRET as string,
+      { expiresIn: ENV.JWT_EXPIRATION } as SignOptions
+    );
 
     return { token, user };
   }
@@ -108,27 +71,29 @@ export class AuthService {
 
     const user = await User.findById(userId).select("-password");
     if (!user) {
-      throw new NotFoundError("User not found");
+      throw new NotFoundError("User not found", "userId");
     }
     return user;
   }
 
-  async updateUser(userId: string, input: any): Promise<IUser> {
+  async updateUser(userId: string, input: UpdateUserDto): Promise<IUser> {
     if (!userId || typeof userId !== "string") {
       throw new ValidationError("Valid user ID is required");
     }
 
-    this.validateUpdateInput(input);
-
     const user = await User.findById(userId);
     if (!user) {
-      throw new NotFoundError("User not found");
+      throw new NotFoundError("User not found", "userId");
     }
 
     if (input.username) {
       const existingUser = await User.findOne({ username: input.username });
       if (existingUser && existingUser.id !== userId) {
-        throw new ConflictError("Username already taken");
+        throw new ConflictError(
+          "Username already taken",
+          "username",
+          input.username
+        );
       }
       user.username = input.username;
     }
@@ -149,7 +114,7 @@ export class AuthService {
 
     const result = await User.findByIdAndDelete(userId);
     if (!result) {
-      throw new NotFoundError("User not found");
+      throw new NotFoundError("User not found", "userId");
     }
   }
 }

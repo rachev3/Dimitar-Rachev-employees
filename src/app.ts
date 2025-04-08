@@ -1,11 +1,14 @@
 import "reflect-metadata";
 import { createExpressServer, useContainer, Action } from "routing-controllers";
 import { Container } from "typedi";
-import express from "express";
+import express, { Request, Response } from "express";
 import jwt from "jsonwebtoken";
 import { ENV } from "./config/env";
 import { AuthController } from "./controllers/AuthController";
+import { ProjectController } from "./controllers/ProjectController";
 import { ErrorMiddleware } from "./middlewares/ErrorMiddleware";
+import { RequestLoggerMiddleware } from "./middlewares/RequestLogger";
+import { RateLimiterMiddleware } from "./middlewares/RateLimiter";
 import { UserPayload } from "./types/UserPayload";
 import { AuthorizationError } from "./utils/errors";
 
@@ -15,9 +18,22 @@ export const createApp = () => {
   const app = createExpressServer({
     cors: true,
     routePrefix: "/api",
-    controllers: [AuthController],
-    middlewares: [ErrorMiddleware],
+    controllers: [AuthController, ProjectController],
+    middlewares: [
+      RequestLoggerMiddleware,
+      RateLimiterMiddleware,
+      ErrorMiddleware,
+    ],
     defaultErrorHandler: false,
+    validation: {
+      whitelist: true,
+      forbidNonWhitelisted: true,
+      validationError: {
+        target: false,
+        value: false,
+      },
+    },
+    classTransformer: true,
     authorizationChecker: async (action: Action, roles: string[] = []) => {
       try {
         const token = action.request.headers["authorization"]?.split(" ")[1];
@@ -53,8 +69,22 @@ export const createApp = () => {
   });
 
   // Apply middlewares
-  app.use(express.json());
-  app.use(express.urlencoded({ extended: true }));
+  app.use(
+    express.json({
+      limit: "10kb", // Limit JSON payload size
+    })
+  );
+  app.use(
+    express.urlencoded({
+      extended: true,
+      limit: "10kb", // Limit URL-encoded payload size
+    })
+  );
+
+  // Add health check endpoint
+  app.get("/health", (_: Request, res: Response) => {
+    res.status(200).json({ status: "ok" });
+  });
 
   return app;
 };

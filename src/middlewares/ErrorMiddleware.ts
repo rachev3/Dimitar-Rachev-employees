@@ -13,6 +13,8 @@ interface ErrorResponse {
   error?: {
     type: string;
     details?: any;
+    path?: string;
+    statusCode?: number;
   };
   stack?: string;
 }
@@ -21,28 +23,40 @@ interface ErrorResponse {
 @Middleware({ type: "after" })
 export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
   error(error: Error, req: Request, res: Response, next: NextFunction) {
-    // Default to 500 server error
     let statusCode = 500;
     const response: ErrorResponse = {
       success: false,
       message: "Internal Server Error",
     };
 
-    // Handle AppError instances
+    // Log error in development and staging environments
+    if (ENV.NODE_ENV === "development" || ENV.NODE_ENV === "staging") {
+      console.error(`🔴 Error: ${error.message}`);
+      console.error(error.stack);
+    } else if (ENV.NODE_ENV === "production") {
+      // In production only log server errors and operational errors
+      if (
+        statusCode >= 500 ||
+        (error instanceof AppError && !error.isOperational)
+      ) {
+        console.error(`🔴 Error: ${error.message}`);
+      }
+    }
+
     if (error instanceof AppError) {
       statusCode = error.statusCode;
       response.message = error.message;
       response.error = {
         type: error.name,
+        statusCode: error.statusCode,
       };
 
-      // Include validation errors if any
       if (error.name === "ValidationError" && (error as any).errors) {
         response.error.details = (error as any).errors;
       }
     }
 
-    // Handle JWT Errors
+    // Handle JWT errors
     if (error.name === "JsonWebTokenError") {
       statusCode = 401;
       response.message = "Invalid token";
@@ -59,12 +73,13 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       };
     }
 
-    // Handle Mongoose Errors
+    // Handle MongoDB errors
     if (error.name === "CastError") {
       statusCode = 400;
       response.message = "Invalid ID format";
       response.error = {
         type: "ValidationError",
+        path: (error as any).path,
       };
     }
 
@@ -73,12 +88,34 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       response.message = "Duplicate field value";
       response.error = {
         type: "ConflictError",
+        details: (error as any).keyValue,
       };
     }
 
-    // Include stack trace only in development
+    // Handle standard SyntaxError (like JSON parse errors)
+    if (error instanceof SyntaxError && (error as any).status === 400) {
+      statusCode = 400;
+      response.message = "Invalid request syntax";
+      response.error = {
+        type: "ValidationError",
+      };
+    }
+
+    // Handle validation library errors
+    if (
+      error.name === "ValidationError" ||
+      (Array.isArray((error as any).errors) && (error as any).errors.length > 0)
+    ) {
+      statusCode = 400;
+      response.message = "Validation failed";
+      response.error = {
+        type: "ValidationError",
+        details: (error as any).errors || [],
+      };
+    }
+
+    // Include stack trace in development
     if (ENV.NODE_ENV === "development") {
-      // Clean up the stack trace
       const stackLines = error.stack?.split("\n").map((line) => line.trim());
       if (stackLines) {
         response.stack = stackLines.join("\n");
@@ -95,7 +132,6 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
     res.status(statusCode).json(response);
   }
 
-  // Catch async errors
   static catchAsync(
     fn: (req: Request, res: Response, next: NextFunction) => Promise<any>
   ) {

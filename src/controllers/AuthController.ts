@@ -12,6 +12,8 @@ import {
 import { Service } from "typedi";
 import { AuthService } from "../services/AuthService";
 import { UserPayload } from "../types/UserPayload";
+import { RegisterDto, LoginDto, UpdateUserDto } from "../dtos/AuthDto";
+import { NotFoundError } from "../utils/errors";
 
 @JsonController("/auth")
 @Service()
@@ -29,72 +31,95 @@ export class AuthController {
   }
 
   @Post("/register")
-  async register(@Body() body: any) {
-    const user = await this.authService.register(body);
-    return {
-      success: true,
-      user: this.formatUserResponse(user),
-    };
+  async register(@Body() body: RegisterDto) {
+    try {
+      const user = await this.authService.register(body);
+      return {
+        success: true,
+        user: this.formatUserResponse(user),
+      };
+    } catch (error) {
+      // Let the error middleware handle this error
+      throw error;
+    }
   }
 
   @Post("/login")
-  async login(@Body() body: any) {
-    const { token, user } = await this.authService.login(body);
-    return {
-      success: true,
-      token,
-      user: this.formatUserResponse(user),
-    };
+  async login(@Body() body: LoginDto) {
+    try {
+      const { token, user } = await this.authService.login(body);
+      return {
+        success: true,
+        token,
+        user: this.formatUserResponse(user),
+      };
+    } catch (error) {
+      // Let the error middleware handle this error
+      throw error;
+    }
   }
 
   @Get("/users")
   @Authorized(["admin"])
   async getUsers() {
-    const users = await this.authService.getUsers();
-    return {
-      success: true,
-      users: users.map((user) => this.formatUserResponse(user)),
-    };
+    try {
+      const users = await this.authService.getUsers();
+      return {
+        success: true,
+        users: users.map((user) => this.formatUserResponse(user)),
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Get("/users/:id")
   @Authorized(["admin"])
   async getUserById(@Param("id") id: string) {
-    const user = await this.authService.getUserById(id);
-    return {
-      success: true,
-      user: this.formatUserResponse(user),
-    };
+    try {
+      const user = await this.authService.getUserById(id);
+      return {
+        success: true,
+        user: this.formatUserResponse(user),
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Put("/users/:id")
   @Authorized()
   async updateUser(
     @Param("id") id: string,
-    @Body() body: any,
+    @Body() body: UpdateUserDto,
     @CurrentUser() currentUser: UserPayload
   ) {
-    if (currentUser.role !== "admin" && currentUser.id !== id) {
-      return {
-        success: false,
-        message: "Unauthorized: You can only update your own account",
-      };
-    }
+    try {
+      if (currentUser.role !== "admin" && currentUser.id !== id) {
+        throw new NotFoundError("User not found");
+      }
 
-    const user = await this.authService.updateUser(id, body);
-    return {
-      success: true,
-      user: this.formatUserResponse(user),
-    };
+      const user = await this.authService.updateUser(id, body);
+      return {
+        success: true,
+        user: this.formatUserResponse(user),
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 
   @Delete("/users/:id")
   @Authorized(["admin"])
   async deleteUser(@Param("id") id: string) {
-    await this.authService.deleteUser(id);
-    return {
-      success: true,
-      message: "User deleted successfully",
-    };
+    try {
+      await this.authService.deleteUser(id);
+      return {
+        success: true,
+        message: "User deleted successfully",
+      };
+    } catch (error) {
+      throw error;
+    }
   }
 }
