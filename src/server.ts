@@ -1,15 +1,26 @@
-import "reflect-metadata"; // Required for routing-controllers
-import express from "express";
+import "dotenv/config";
+import { createApp } from "./app";
+import { connectDB } from "./config/db";
+import { seedAdminUser } from "./seed/adminSeed";
+import { ENV } from "./config/env";
 
-const app = express();
+const startServer = async () => {
+  try {
+    await connectDB();
 
-// Define a simple route for testing
-app.get("/", (req: express.Request, res: express.Response) => {
-  res.send("Hello, World!");
-});
+    // Run seed functions
+    await seedAdminUser();
 
-// Start the server
-const PORT = process.env.PORT || 3000;
-app.listen(PORT, () => {
-  console.log(`Server is running on http://localhost:${PORT}`);
-});
+    const app = createApp();
+
+    const PORT = ENV.PORT;
+    app.listen(PORT, () => {
+      console.log(`Server is running on http://localhost:${PORT}`);
+    });
+  } catch (error) {
+    console.error("Failed to start server:", error);
+    process.exit(1);
+  }
+};
+
+startServer();
