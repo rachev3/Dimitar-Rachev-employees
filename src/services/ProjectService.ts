@@ -25,7 +25,6 @@ export class ProjectService {
   ): Promise<IProject> {
     this.checkAdminPermission(currentUser);
 
-    // Check if project with same name already exists
     const existingProject = await Project.findOne({ name: input.name });
     if (existingProject) {
       throw new ConflictError(
@@ -82,10 +81,9 @@ export class ProjectService {
       throw new NotFoundError("Project not found", "projectId");
     }
 
-    // Check if another project with the same name exists
     const existingProject = await Project.findOne({
       name: input.name,
-      _id: { $ne: projectId }, // Exclude current project from check
+      _id: { $ne: projectId },
     });
     if (existingProject) {
       throw new ConflictError(

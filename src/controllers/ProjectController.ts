@@ -11,7 +11,7 @@ import {
 } from "routing-controllers";
 import { Service } from "typedi";
 import { ProjectService } from "../services/ProjectService";
-import { UserPayload } from "../types/UserPayload";
+import type { UserPayload } from "../types/UserPayload";
 import { CreateProjectDto, UpdateProjectDto } from "../dtos/ProjectDto";
 import { Expose, plainToClass } from "class-transformer";
 

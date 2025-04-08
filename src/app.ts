@@ -41,13 +41,10 @@ export const createApp = () => {
           throw new AuthorizationError("No token provided");
         }
 
-        // Verify token
         const decoded = jwt.verify(token, ENV.JWT_SECRET) as UserPayload;
 
-        // Add user to request
         action.request.user = decoded;
 
-        // Check if user has required role
         if (roles.length > 0 && !roles.includes(decoded.role)) {
           throw new AuthorizationError("Insufficient permissions");
         }
@@ -68,20 +65,18 @@ export const createApp = () => {
     },
   });
 
-  // Apply middlewares
   app.use(
     express.json({
-      limit: "10kb", // Limit JSON payload size
+      limit: "10kb",
     })
   );
   app.use(
     express.urlencoded({
       extended: true,
-      limit: "10kb", // Limit URL-encoded payload size
+      limit: "10kb",
     })
   );
 
-  // Add health check endpoint
   app.get("/health", (_: Request, res: Response) => {
     res.status(200).json({ status: "ok" });
   });

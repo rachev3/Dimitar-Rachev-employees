@@ -11,7 +11,7 @@ import {
 } from "routing-controllers";
 import { Service } from "typedi";
 import { AuthService } from "../services/AuthService";
-import { UserPayload } from "../types/UserPayload";
+import type { UserPayload } from "../types/UserPayload";
 import { RegisterDto, LoginDto, UpdateUserDto } from "../dtos/AuthDto";
 import { NotFoundError } from "../utils/errors";
 
@@ -39,7 +39,6 @@ export class AuthController {
         user: this.formatUserResponse(user),
       };
     } catch (error) {
-      // Let the error middleware handle this error
       throw error;
     }
   }
@@ -54,7 +53,6 @@ export class AuthController {
         user: this.formatUserResponse(user),
       };
     } catch (error) {
-      // Let the error middleware handle this error
       throw error;
     }
   }

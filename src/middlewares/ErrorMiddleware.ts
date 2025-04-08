@@ -29,12 +29,10 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       message: "Internal Server Error",
     };
 
-    // Log error in development and staging environments
     if (ENV.NODE_ENV === "development" || ENV.NODE_ENV === "staging") {
       console.error(`🔴 Error: ${error.message}`);
       console.error(error.stack);
     } else if (ENV.NODE_ENV === "production") {
-      // In production only log server errors and operational errors
       if (
         statusCode >= 500 ||
         (error instanceof AppError && !error.isOperational)
@@ -56,7 +54,6 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       }
     }
 
-    // Handle JWT errors
     if (error.name === "JsonWebTokenError") {
       statusCode = 401;
       response.message = "Invalid token";
@@ -73,7 +70,6 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       };
     }
 
-    // Handle MongoDB errors
     if (error.name === "CastError") {
       statusCode = 400;
       response.message = "Invalid ID format";
@@ -92,7 +88,6 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       };
     }
 
-    // Handle standard SyntaxError (like JSON parse errors)
     if (error instanceof SyntaxError && (error as any).status === 400) {
       statusCode = 400;
       response.message = "Invalid request syntax";
@@ -101,7 +96,6 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       };
     }
 
-    // Handle validation library errors
     if (
       error.name === "ValidationError" ||
       (Array.isArray((error as any).errors) && (error as any).errors.length > 0)
@@ -114,7 +108,6 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       };
     }
 
-    // Include stack trace in development
     if (ENV.NODE_ENV === "development") {
       const stackLines = error.stack?.split("\n").map((line) => line.trim());
       if (stackLines) {
@@ -122,7 +115,6 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       }
     }
 
-    // Remove undefined properties
     Object.keys(response).forEach((key) => {
       if (response[key as keyof ErrorResponse] === undefined) {
         delete response[key as keyof ErrorResponse];

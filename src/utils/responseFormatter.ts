@@ -1,6 +1,3 @@
-/**
- * Creates a standardized success response
- */
 export const successResponse = <T>(data: T, message?: string) => {
   const response: {
     success: true;
@@ -18,9 +15,6 @@ export const successResponse = <T>(data: T, message?: string) => {
   return response;
 };
 
-/**
- * Creates a standardized error response
- */
 export const errorResponse = (message: string, errorDetails?: any) => {
   const response: {
     success: false;
@@ -38,9 +32,6 @@ export const errorResponse = (message: string, errorDetails?: any) => {
   return response;
 };
 
-/**
- * Returns a simple success message response
- */
 export const messageResponse = (message: string) => {
   return {
     success: true,
