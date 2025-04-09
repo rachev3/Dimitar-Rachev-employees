@@ -7,8 +7,9 @@ import {
   ConflictError,
   AuthorizationError,
 } from "../../utils/errors";
-import mongoose from "mongoose";
 import { UserPayload } from "../../types/UserPayload";
+import { validProjectData, generateNonExistentId } from "../helpers/fixtures";
+import { expectErrorType, edgeCases } from "../helpers/testUtils";
 
 describe("ProjectService", () => {
   let projectService: ProjectService;
@@ -45,25 +46,22 @@ describe("ProjectService", () => {
 
   describe("createProject", () => {
     it("should create a project when admin user", async () => {
-      const projectData = {
-        name: "Test Project",
-      };
-
-      const result = await projectService.createProject(projectData, adminUser);
+      const result = await projectService.createProject(
+        validProjectData,
+        adminUser
+      );
 
       expect(result).toBeDefined();
-      expect(result.name).toBe(projectData.name);
+      expect(result.name).toBe(validProjectData.name);
       expect((result as any)._id).toBeDefined();
     });
 
     it("should throw AuthorizationError when non-admin tries to create a project", async () => {
-      const projectData = {
-        name: "Test Project",
-      };
-
-      await expect(
-        projectService.createProject(projectData, regularUser)
-      ).rejects.toThrow(/unauthorized: only admins can manage projects/i);
+      await expectErrorType(
+        () => projectService.createProject(validProjectData, regularUser),
+        AuthorizationError,
+        /unauthorized: only admins can manage projects/i
+      );
     });
 
     it("should throw ValidationError when name is empty", async () => {
@@ -71,21 +69,41 @@ describe("ProjectService", () => {
         name: "",
       };
 
-      await expect(
-        projectService.createProject(projectData, adminUser)
-      ).rejects.toThrow();
+      await expectErrorType(
+        () => projectService.createProject(projectData, adminUser),
+        ValidationError
+      );
     });
 
     it("should throw ConflictError when project with same name exists", async () => {
+      // Create first project
+      await projectService.createProject(validProjectData, adminUser);
+
+      // Try to create another with the same name
+      await expectErrorType(
+        () => projectService.createProject(validProjectData, adminUser),
+        ConflictError,
+        /project with this name already exists/i
+      );
+    });
+
+    it("should allow extremely long project names", async () => {
       const projectData = {
-        name: "Duplicate Project",
+        name: edgeCases.veryLongString,
       };
 
-      await projectService.createProject(projectData, adminUser);
+      // It seems our implementation accepts long project names
+      const result = await projectService.createProject(projectData, adminUser);
+      expect(result.name).toBe(edgeCases.veryLongString);
+    });
 
-      await expect(
-        projectService.createProject(projectData, adminUser)
-      ).rejects.toThrow(/project with this name already exists/i);
+    it("should handle special characters in project names", async () => {
+      const projectData = {
+        name: edgeCases.specialChars,
+      };
+
+      const result = await projectService.createProject(projectData, adminUser);
+      expect(result.name).toBe(edgeCases.specialChars);
     });
   });
 
@@ -112,25 +130,70 @@ describe("ProjectService", () => {
     });
 
     it("should throw NotFoundError when project does not exist", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId().toString();
+      const nonExistentId = generateNonExistentId();
 
-      await expect(
-        projectService.getProjectById(nonExistentId, adminUser)
-      ).rejects.toThrow(/project not found/i);
+      await expectErrorType(
+        () => projectService.getProjectById(nonExistentId, adminUser),
+        NotFoundError,
+        /project not found/i
+      );
     });
 
     it("should throw ValidationError when project ID is invalid", async () => {
-      const invalidId = "not-a-valid-id";
-
       await expect(
-        projectService.getProjectById(invalidId, adminUser)
+        projectService.getProjectById(edgeCases.malformedObjectId, adminUser)
       ).rejects.toThrow();
     });
 
     it("should throw AuthorizationError when non-admin tries to get a project", async () => {
-      await expect(
-        projectService.getProjectById(testProjectId, regularUser)
-      ).rejects.toThrow(/unauthorized: only admins can manage projects/i);
+      await expectErrorType(
+        () => projectService.getProjectById(testProjectId, regularUser),
+        AuthorizationError,
+        /unauthorized: only admins can manage projects/i
+      );
+    });
+  });
+
+  describe("getAllProjects", () => {
+    beforeEach(async () => {
+      // Create test projects
+      await projectService.createProject({ name: "Project 1" }, adminUser);
+      await projectService.createProject({ name: "Project 2" }, adminUser);
+    });
+
+    it("should get all projects when admin user", async () => {
+      const projects = await projectService.getAllProjects(adminUser);
+
+      expect(projects).toBeDefined();
+      expect(Array.isArray(projects)).toBe(true);
+      expect(projects.length).toBeGreaterThanOrEqual(2);
+
+      const projectNames = projects.map((p) => p.name);
+      expect(projectNames).toContain("Project 1");
+      expect(projectNames).toContain("Project 2");
+    });
+
+    it("should throw AuthorizationError when non-admin tries to get all projects", async () => {
+      await expectErrorType(
+        () => projectService.getAllProjects(regularUser),
+        AuthorizationError,
+        /unauthorized: only admins can manage projects/i
+      );
+    });
+
+    it("should handle database errors gracefully", async () => {
+      // Mock a database error scenario
+      const originalFind = Project.find;
+      Project.find = jest.fn().mockImplementation(() => {
+        throw new Error("Database connection error");
+      }) as any;
+
+      await expect(projectService.getAllProjects(adminUser)).rejects.toThrow(
+        "Database connection error"
+      );
+
+      // Restore the original function
+      Project.find = originalFind;
     });
   });
 
@@ -171,18 +234,65 @@ describe("ProjectService", () => {
         name: "Another Project",
       };
 
-      await expect(
-        projectService.updateProject(testProjectId, updateData, adminUser)
-      ).rejects.toThrow(/project with this name already exists/i);
+      await expectErrorType(
+        () =>
+          projectService.updateProject(testProjectId, updateData, adminUser),
+        ConflictError,
+        /project with this name already exists/i
+      );
     });
 
     it("should throw AuthorizationError when non-admin tries to update a project", async () => {
       const updateData = {
         name: "Updated By Non-Admin",
       };
+
+      await expectErrorType(
+        () =>
+          projectService.updateProject(testProjectId, updateData, regularUser),
+        AuthorizationError,
+        /unauthorized: only admins can manage projects/i
+      );
+    });
+
+    it("should throw NotFoundError when project does not exist", async () => {
+      const nonExistentId = generateNonExistentId();
+      const updateData = {
+        name: "Update Non-Existent Project",
+      };
+
+      await expectErrorType(
+        () =>
+          projectService.updateProject(nonExistentId, updateData, adminUser),
+        NotFoundError,
+        /project not found/i
+      );
+    });
+
+    it("should throw ValidationError when updated name is empty", async () => {
+      const updateData = {
+        name: "",
+      };
+
+      await expectErrorType(
+        () =>
+          projectService.updateProject(testProjectId, updateData, adminUser),
+        ValidationError
+      );
+    });
+
+    it("should handle invalid ObjectId format gracefully", async () => {
+      const updateData = {
+        name: "Updated Name",
+      };
+
       await expect(
-        projectService.updateProject(testProjectId, updateData, regularUser)
-      ).rejects.toThrow(/unauthorized: only admins can manage projects/i);
+        projectService.updateProject(
+          edgeCases.malformedObjectId,
+          updateData,
+          adminUser
+        )
+      ).rejects.toThrow();
     });
   });
 
@@ -200,22 +310,51 @@ describe("ProjectService", () => {
     it("should delete a project when admin user", async () => {
       await projectService.deleteProject(testProjectId, adminUser);
 
-      const deletedProject = await Project.findById(testProjectId);
-      expect(deletedProject).toBeNull();
+      // Verify the project was deleted
+      await expectErrorType(
+        () => projectService.getProjectById(testProjectId, adminUser),
+        NotFoundError,
+        /project not found/i
+      );
     });
 
-    it("should throw NotFoundError when trying to delete a non-existent project", async () => {
-      const nonExistentId = new mongoose.Types.ObjectId().toString();
+    it("should throw NotFoundError when project does not exist", async () => {
+      const nonExistentId = generateNonExistentId();
 
-      await expect(
-        projectService.deleteProject(nonExistentId, adminUser)
-      ).rejects.toThrow(/project not found/i);
+      await expectErrorType(
+        () => projectService.deleteProject(nonExistentId, adminUser),
+        NotFoundError,
+        /project not found/i
+      );
     });
 
     it("should throw AuthorizationError when non-admin tries to delete a project", async () => {
+      await expectErrorType(
+        () => projectService.deleteProject(testProjectId, regularUser),
+        AuthorizationError,
+        /unauthorized: only admins can manage projects/i
+      );
+    });
+
+    it("should handle invalid ObjectId gracefully", async () => {
       await expect(
-        projectService.deleteProject(testProjectId, regularUser)
-      ).rejects.toThrow(/unauthorized: only admins can manage projects/i);
+        projectService.deleteProject(edgeCases.malformedObjectId, adminUser)
+      ).rejects.toThrow();
+    });
+
+    it("should handle database errors during deletion", async () => {
+      // Mock a database error scenario
+      const originalFindByIdAndDelete = Project.findByIdAndDelete;
+      Project.findByIdAndDelete = jest.fn().mockImplementation(() => {
+        throw new Error("Database error during deletion");
+      }) as any;
+
+      await expect(
+        projectService.deleteProject(testProjectId, adminUser)
+      ).rejects.toThrow("Database error during deletion");
+
+      // Restore the original function
+      Project.findByIdAndDelete = originalFindByIdAndDelete;
     });
   });
 });
