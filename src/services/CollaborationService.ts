@@ -47,36 +47,29 @@ export class CollaborationService {
   }
 
   private getPairKey(emp1: string, emp2: string): string {
-    // Ensure consistent ordering of employee IDs for symmetry
     const [first, second] = [emp1, emp2].sort();
     return `${first}-${second}`;
   }
 
   findLongestCollaboration(records: CsvRecord[]): CollaborationPair[] {
-    // Map to store total overlap days for each employee pair across all projects
     const pairOverlaps = new Map<string, CollaborationPair>();
 
-    // Group records by project
     const projectGroups = new Map<string, CsvRecord[]>();
     records.forEach((record) => {
       const existing = projectGroups.get(record.projectId) || [];
       projectGroups.set(record.projectId, [...existing, record]);
     });
 
-    // Process each project group
     for (const [projectId, projectRecords] of projectGroups) {
-      // Calculate overlaps for each pair of employees in the project
       for (let i = 0; i < projectRecords.length; i++) {
         for (let j = i + 1; j < projectRecords.length; j++) {
           const record1 = projectRecords[i];
           const record2 = projectRecords[j];
 
-          // Skip if it's the same employee
           if (record1.employeeId === record2.employeeId) {
             continue;
           }
 
-          // Calculate overlap days
           const start1 = this.parseDate(record1.dateFrom);
           const end1 = this.parseDate(record1.dateTo);
           const start2 = this.parseDate(record2.dateFrom);
@@ -90,7 +83,6 @@ export class CollaborationService {
           );
 
           if (overlapDays > 0) {
-            // Use consistent key for the pair regardless of order
             const pairKey = this.getPairKey(
               record1.employeeId,
               record2.employeeId
@@ -104,7 +96,6 @@ export class CollaborationService {
               });
             }
 
-            // Add the overlap days to the total for this pair
             const currentPair = pairOverlaps.get(pairKey)!;
             currentPair.totalDays += overlapDays;
           }
@@ -112,17 +103,14 @@ export class CollaborationService {
       }
     }
 
-    // If no overlaps found, return empty array
     if (pairOverlaps.size === 0) {
       return [];
     }
 
-    // Find the maximum overlap days
     const maxDays = Math.max(
       ...Array.from(pairOverlaps.values()).map((p) => p.totalDays)
     );
 
-    // Return all pairs that have the maximum overlap days
     return Array.from(pairOverlaps.values())
       .filter((pair) => pair.totalDays === maxDays)
       .map((pair) => ({

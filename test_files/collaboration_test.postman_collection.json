@@ -1,0 +1,479 @@
+{
+  "info": {
+    "_postman_id": "1234abcd-5678-efgh-9012-ijklmn456789",
+    "name": "Collaboration Analyzer Tests",
+    "description": "Test suite for the CSV collaboration analyzer API",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Valid Data Tests",
+      "item": [
+        {
+          "name": "Standard Valid Data",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/valid_data.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests valid data with proper formatting"
+          },
+          "response": []
+        },
+        {
+          "name": "Alternative Date Formats",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/valid_with_alternative_dates.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests with various date formats"
+          },
+          "response": []
+        },
+        {
+          "name": "Null DateTo Values",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/valid_with_null_dateTo.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests handling of null/undefined DateTo values"
+          },
+          "response": []
+        },
+        {
+          "name": "Boundary Day Condition",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/valid_boundary_condition.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests boundary condition (1 day overlap)"
+          },
+          "response": []
+        }
+      ],
+      "description": "Tests with valid data"
+    },
+    {
+      "name": "Format Validation Tests",
+      "item": [
+        {
+          "name": "Empty File",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/empty_file.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests error handling for empty file"
+          },
+          "response": []
+        },
+        {
+          "name": "Whitespace Only",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/whitespace_only.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests file with only whitespace"
+          },
+          "response": []
+        },
+        {
+          "name": "Wrong Delimiter",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/wrong_delimiter.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests delimiter validation"
+          },
+          "response": []
+        },
+        {
+          "name": "Wrong Column Count",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/wrong_column_count.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests column count validation"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Data Validation Tests",
+      "item": [
+        {
+          "name": "Invalid IDs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/invalid_ids.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests ID validation"
+          },
+          "response": []
+        },
+        {
+          "name": "Invalid Dates",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/invalid_dates.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests date validation"
+          },
+          "response": []
+        },
+        {
+          "name": "Missing Required Fields",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/missing_required_fields.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests required field validation"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Special Case Tests",
+      "item": [
+        {
+          "name": "No Overlap Periods",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/no_overlap_periods.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests case with no overlapping periods"
+          },
+          "response": []
+        },
+        {
+          "name": "Multiple Max Pairs",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/multiple_same_max_pairs.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests handling of multiple pairs with same max days"
+          },
+          "response": []
+        },
+        {
+          "name": "Large File Test",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{auth_token}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/many_lines.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["collaboration", "analyze"]
+            },
+            "description": "Tests performance with larger file"
+          },
+          "response": []
+        }
+      ]
+    }
+  ],
+  "event": [
+    {
+      "listen": "prerequest",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    },
+    {
+      "listen": "test",
+      "script": {
+        "type": "text/javascript",
+        "exec": [""]
+      }
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    },
+    {
+      "key": "auth_token",
+      "value": "your_jwt_token_here",
+      "type": "string"
+    }
+  ]
+}
