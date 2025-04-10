@@ -372,9 +372,11 @@ export class CollaborationController {
       return {
         success: true,
         result: [
-          longestCollaboration.employee1Id,
-          longestCollaboration.employee2Id,
-          longestCollaboration.totalDays,
+          ...longestCollaboration.map((collaboration) => ({
+            employee1Id: collaboration.employee1Id,
+            employee2Id: collaboration.employee2Id,
+            totalDays: collaboration.totalDays,
+          })),
         ],
       };
     } catch (error: unknown) {

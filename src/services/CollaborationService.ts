@@ -17,7 +17,7 @@ interface CollaborationPair {
 export class CollaborationService {
   private parseDate(dateStr: string | null): Date {
     if (!dateStr) {
-      return new Date(); // Use current date for null/undefined DateTo
+      return new Date();
     }
     return new Date(dateStr);
   }
@@ -28,38 +28,40 @@ export class CollaborationService {
     start2: Date,
     end2: Date
   ): number {
-    // Handle boundary condition: if one period ends exactly when another begins
     if (
       end1.getTime() === start2.getTime() ||
       end2.getTime() === start1.getTime()
     ) {
-      return 1; // Count as 1 day overlap
+      return 1;
     }
 
-    // No overlap if one period ends before another starts
     if (end1 < start2 || end2 < start1) {
       return 0;
     }
 
-    // Calculate overlap period
     const overlapStart = new Date(Math.max(start1.getTime(), start2.getTime()));
     const overlapEnd = new Date(Math.min(end1.getTime(), end2.getTime()));
 
-    // Calculate days between dates (inclusive of both start and end)
     const diffTime = Math.abs(overlapEnd.getTime() - overlapStart.getTime());
     return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   }
 
-  findLongestCollaboration(records: CsvRecord[]): CollaborationPair | null {
+  private getPairKey(emp1: string, emp2: string): string {
+    // Ensure consistent ordering of employee IDs for symmetry
+    const [first, second] = [emp1, emp2].sort();
+    return `${first}-${second}`;
+  }
+
+  findLongestCollaboration(records: CsvRecord[]): CollaborationPair[] {
+    // Map to store total overlap days for each employee pair across all projects
+    const pairOverlaps = new Map<string, CollaborationPair>();
+
     // Group records by project
     const projectGroups = new Map<string, CsvRecord[]>();
     records.forEach((record) => {
       const existing = projectGroups.get(record.projectId) || [];
       projectGroups.set(record.projectId, [...existing, record]);
     });
-
-    let maxOverlap = 0;
-    let result: CollaborationPair | null = null;
 
     // Process each project group
     for (const [projectId, projectRecords] of projectGroups) {
@@ -87,19 +89,46 @@ export class CollaborationService {
             end2
           );
 
-          // Update result if this is the longest collaboration
-          if (overlapDays > maxOverlap) {
-            maxOverlap = overlapDays;
-            result = {
-              employee1Id: record1.employeeId,
-              employee2Id: record2.employeeId,
-              totalDays: overlapDays,
-            };
+          if (overlapDays > 0) {
+            // Use consistent key for the pair regardless of order
+            const pairKey = this.getPairKey(
+              record1.employeeId,
+              record2.employeeId
+            );
+
+            if (!pairOverlaps.has(pairKey)) {
+              pairOverlaps.set(pairKey, {
+                employee1Id: record1.employeeId,
+                employee2Id: record2.employeeId,
+                totalDays: 0,
+              });
+            }
+
+            // Add the overlap days to the total for this pair
+            const currentPair = pairOverlaps.get(pairKey)!;
+            currentPair.totalDays += overlapDays;
           }
         }
       }
     }
 
-    return result;
+    // If no overlaps found, return empty array
+    if (pairOverlaps.size === 0) {
+      return [];
+    }
+
+    // Find the maximum overlap days
+    const maxDays = Math.max(
+      ...Array.from(pairOverlaps.values()).map((p) => p.totalDays)
+    );
+
+    // Return all pairs that have the maximum overlap days
+    return Array.from(pairOverlaps.values())
+      .filter((pair) => pair.totalDays === maxDays)
+      .map((pair) => ({
+        employee1Id: pair.employee1Id,
+        employee2Id: pair.employee2Id,
+        totalDays: pair.totalDays,
+      }));
   }
 }
