@@ -150,6 +150,7 @@ _Collaboration endpoints and logic details will be covered in separate documenta
 
    ```bash
    git clone https://github.com/rachev3/Dimitar-Rachev-employees.git
+   cd Dimitar-Rachev-employees
    ```
 
 2. **Install dependencies**
