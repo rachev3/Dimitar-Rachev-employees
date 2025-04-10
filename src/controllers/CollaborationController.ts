@@ -63,6 +63,12 @@ interface ValidationError {
   reason: string;
 }
 
+interface DateInterval {
+  dateFrom: Date;
+  dateTo: Date;
+  rowNumber: number;
+}
+
 @Service()
 @JsonController("/collaboration")
 export class CollaborationController {
@@ -237,6 +243,56 @@ export class CollaborationController {
     };
   }
 
+  private validateIntervals(records: CsvRecord[]): ValidationError[] {
+    const invalidRows: ValidationError[] = [];
+    const intervalMap = new Map<string, DateInterval[]>();
+
+    // Group intervals by employee and project
+    records.forEach((record, index) => {
+      const key = `${record.employeeId}-${record.projectId}`;
+      const fromDate = this.parseDate(record.dateFrom);
+      const toDate = record.dateTo ? this.parseDate(record.dateTo) : new Date();
+
+      if (!fromDate || !toDate) return; // Skip invalid dates (they're caught in earlier validation)
+
+      const interval: DateInterval = {
+        dateFrom: fromDate,
+        dateTo: toDate,
+        rowNumber: index + 1,
+      };
+
+      const existingIntervals = intervalMap.get(key) || [];
+      intervalMap.set(key, [...existingIntervals, interval]);
+    });
+
+    // Check each group for overlaps
+    for (const [key, intervals] of intervalMap.entries()) {
+      if (intervals.length <= 1) continue;
+
+      // Sort intervals by start date
+      intervals.sort((a, b) => a.dateFrom.getTime() - b.dateFrom.getTime());
+
+      // Check for overlaps
+      for (let i = 0; i < intervals.length - 1; i++) {
+        const current = intervals[i];
+        const next = intervals[i + 1];
+
+        // Check if intervals overlap
+        if (current.dateTo >= next.dateFrom) {
+          const [empId, projId] = key.split("-");
+          invalidRows.push({
+            rowNumber: next.rowNumber,
+            reason: `Overlapping period detected for Employee ${empId} on Project ${projId}. Previous period ends on ${
+              current.dateTo.toISOString().split("T")[0]
+            }`,
+          });
+        }
+      }
+    }
+
+    return invalidRows;
+  }
+
   private validateCsvFormat(lines: string[]): CsvRecord[] {
     const nonEmptyLines = lines.filter((line) => line.trim());
 
@@ -271,6 +327,15 @@ export class CollaborationController {
       throw new DataValidationError(
         "Data validation error: Some rows contain invalid data types.",
         dataTypeErrors
+      );
+    }
+
+    // Add interval validation
+    const intervalErrors = this.validateIntervals(validRecords);
+    if (intervalErrors.length > 0) {
+      throw new DataValidationError(
+        "Data validation error: Overlapping intervals detected.",
+        intervalErrors
       );
     }
 
