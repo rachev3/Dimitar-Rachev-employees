@@ -4,124 +4,64 @@ import {
   ExpressErrorMiddlewareInterface,
 } from "routing-controllers";
 import { Service } from "typedi";
-import { AppError } from "../utils/errors";
+import { AppError, InputValidationError } from "../utils/errors";
 import { ENV } from "../config/env";
 
 interface ErrorResponse {
   success: false;
   message: string;
-  error?: {
+  error: {
     type: string;
+    statusCode: number;
     details?: any;
     path?: string;
-    statusCode?: number;
+    value?: any;
+    code?: string;
   };
-  stack?: string;
 }
 
 @Service()
 @Middleware({ type: "after" })
 export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
-  error(error: Error, req: Request, res: Response, next: NextFunction) {
-    let statusCode = 500;
-    const response: ErrorResponse = {
-      success: false,
-      message: "Internal Server Error",
-    };
-
-    if (ENV.NODE_ENV === "development" || ENV.NODE_ENV === "staging") {
-      console.error(`🔴 Error: ${error.message}`);
-      console.error(error.stack);
-    } else if (ENV.NODE_ENV === "production") {
-      if (
-        statusCode >= 500 ||
-        (error instanceof AppError && !error.isOperational)
-      ) {
-        console.error(`🔴 Error: ${error.message}`);
-      }
+  error(error: any, _req: Request, res: Response, _next: NextFunction) {
+    // Log error in development
+    if (ENV.NODE_ENV === "development") {
+      console.error("Error details:", error);
     }
 
+    const response: ErrorResponse = {
+      success: false,
+      message: "Internal server error",
+      error: {
+        type: "InternalServerError",
+        statusCode: 500,
+      },
+    };
+
     if (error instanceof AppError) {
-      statusCode = error.statusCode;
       response.message = error.message;
       response.error = {
-        type: error.name,
+        type: error.type || error.name,
         statusCode: error.statusCode,
       };
 
-      if (error.name === "ValidationError" && (error as any).errors) {
-        response.error.details = (error as any).errors;
+      // Add any additional error details if they exist
+      if (error.path) response.error.path = error.path;
+      if (error.value) response.error.value = error.value;
+      if (error.code) response.error.code = error.code;
+      if (error instanceof InputValidationError) {
+        response.error.type = "InputValidationError";
       }
+
+      return res.status(error.statusCode).json(response);
     }
 
-    if (error.name === "JsonWebTokenError") {
-      statusCode = 401;
-      response.message = "Invalid token";
-      response.error = {
-        type: "AuthorizationError",
-      };
-    }
-
-    if (error.name === "TokenExpiredError") {
-      statusCode = 401;
-      response.message = "Token expired";
-      response.error = {
-        type: "AuthorizationError",
-      };
-    }
-
-    if (error.name === "CastError") {
-      statusCode = 400;
-      response.message = "Invalid ID format";
-      response.error = {
-        type: "ValidationError",
-        path: (error as any).path,
-      };
-    }
-
-    if (error.name === "MongoServerError" && (error as any).code === 11000) {
-      statusCode = 409;
-      response.message = "Duplicate field value";
-      response.error = {
-        type: "ConflictError",
-        details: (error as any).keyValue,
-      };
-    }
-
-    if (error instanceof SyntaxError && (error as any).status === 400) {
-      statusCode = 400;
-      response.message = "Invalid request syntax";
-      response.error = {
-        type: "ValidationError",
-      };
-    }
-
-    if (
-      error.name === "ValidationError" ||
-      (Array.isArray((error as any).errors) && (error as any).errors.length > 0)
-    ) {
-      statusCode = 400;
-      response.message = "Validation failed";
-      response.error = {
-        type: "ValidationError",
-        details: (error as any).errors || [],
-      };
-    }
-
+    // Handle unknown errors
     if (ENV.NODE_ENV === "development") {
-      const stackLines = error.stack?.split("\n").map((line) => line.trim());
-      if (stackLines) {
-        response.stack = stackLines.join("\n");
-      }
+      console.error("Unhandled error:", error);
     }
 
-    Object.keys(response).forEach((key) => {
-      if (response[key as keyof ErrorResponse] === undefined) {
-        delete response[key as keyof ErrorResponse];
-      }
-    });
-
-    res.status(statusCode).json(response);
+    return res.status(500).json(response);
   }
 
   static catchAsync(

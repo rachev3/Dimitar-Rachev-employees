@@ -1,26 +1,29 @@
 export class AppError extends Error {
-  public path?: string;
-  public value?: any;
-  public code?: string;
+  statusCode: number;
+  isOperational: boolean;
+  path?: string;
+  value?: any;
+  code?: string;
+  type?: string;
 
   constructor(
-    public statusCode: number,
-    public message: string,
-    public isOperational = true,
-    details?: {
+    statusCode: number,
+    message: string,
+    isOperational: boolean = true,
+    properties: {
       path?: string;
       value?: any;
       code?: string;
-    }
+      type?: string;
+    } = {}
   ) {
     super(message);
-    Object.setPrototypeOf(this, AppError.prototype);
-
-    if (details) {
-      this.path = details.path;
-      this.value = details.value;
-      this.code = details.code;
-    }
+    this.statusCode = statusCode;
+    this.isOperational = isOperational;
+    this.path = properties.path;
+    this.value = properties.value;
+    this.code = properties.code;
+    this.type = properties.type;
 
     Error.captureStackTrace(this, this.constructor);
   }
@@ -79,5 +82,12 @@ export class ServerError extends AppError {
   constructor(message: string = "Internal server error") {
     super(500, message, false, { code: "SERVER_ERROR" });
     this.name = "ServerError";
+  }
+}
+
+export class InputValidationError extends AppError {
+  constructor(message: string) {
+    super(400, message, true, { type: "InputValidationError" });
+    this.name = "InputValidationError";
   }
 }

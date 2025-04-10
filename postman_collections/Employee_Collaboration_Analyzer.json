@@ -113,6 +113,11 @@
           ],
           "body": {
             "success": true,
+            "longestCollaboration": {
+              "employee1Id": "143",
+              "employee2Id": "218",
+              "totalDays": 376
+            },
             "data": [
               {
                 "employeeId": "143",
