@@ -6,6 +6,7 @@ import jwt from "jsonwebtoken";
 import { ENV } from "./config/env";
 import { AuthController } from "./controllers/AuthController";
 import { ProjectController } from "./controllers/ProjectController";
+import { CollaborationController } from "./controllers/CollaborationController";
 import { ErrorMiddleware } from "./middlewares/ErrorMiddleware";
 import { RequestLoggerMiddleware } from "./middlewares/RequestLogger";
 import { RateLimiterMiddleware } from "./middlewares/RateLimiter";
@@ -18,7 +19,7 @@ export const createApp = () => {
   const app = createExpressServer({
     cors: true,
     routePrefix: "/api",
-    controllers: [AuthController, ProjectController],
+    controllers: [AuthController, ProjectController, CollaborationController],
     middlewares: [
       RequestLoggerMiddleware,
       RateLimiterMiddleware,

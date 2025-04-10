@@ -1,0 +1,148 @@
+{
+  "info": {
+    "name": "Employee Collaboration Analyzer",
+    "description": "Collection to test the collaboration analysis endpoint with file upload.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "var jsonData = pm.response.json();",
+                  "if (jsonData.success && jsonData.token) {",
+                  "    pm.environment.set(\"authToken\", jsonData.token);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n    \"username\": \"your_username\",\n    \"password\": \"your_password\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/api/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["api", "auth", "login"]
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "Upload CSV File",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Authorization",
+            "value": "Bearer {{authToken}}",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "formdata",
+          "formdata": [
+            {
+              "key": "file",
+              "type": "file",
+              "src": "/path/to/your/employees.csv",
+              "description": "CSV file containing employee collaboration data"
+            }
+          ]
+        },
+        "url": {
+          "raw": "{{base_url}}/api/collaboration/analyze",
+          "host": ["{{base_url}}"],
+          "path": ["api", "collaboration", "analyze"]
+        },
+        "description": "Upload a CSV file to analyze employee collaboration patterns"
+      },
+      "response": [
+        {
+          "name": "Success Response",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{authToken}}",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "formdata",
+              "formdata": [
+                {
+                  "key": "file",
+                  "type": "file",
+                  "src": "/path/to/your/employees.csv"
+                }
+              ]
+            },
+            "url": {
+              "raw": "{{base_url}}/api/collaboration/analyze",
+              "host": ["{{base_url}}"],
+              "path": ["api", "collaboration", "analyze"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "body": {
+            "success": true,
+            "data": [
+              {
+                "employeeId": "143",
+                "projectId": "12",
+                "dateFrom": "2013-11-01",
+                "dateTo": "2014-01-05"
+              },
+              {
+                "employeeId": "218",
+                "projectId": "10",
+                "dateFrom": "2011-04-16",
+                "dateTo": null
+              },
+              {
+                "employeeId": "143",
+                "projectId": "10",
+                "dateFrom": "2009-01-01",
+                "dateTo": "2011-04-27"
+              }
+            ]
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:3000",
+      "type": "string"
+    }
+  ]
+}
