@@ -77,9 +77,66 @@ export class CollaborationController {
     return /^\d+$/.test(value.trim());
   }
 
-  private isValidDate(dateStr: string): boolean {
+  private parseDate(dateStr: string): Date | null {
+    // Try parsing ISO 8601 format
     const date = new Date(dateStr);
-    return date instanceof Date && !isNaN(date.getTime());
+    if (!isNaN(date.getTime())) {
+      return date;
+    }
+
+    // Try parsing YYYY-MM-DD format
+    const match = dateStr.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (match) {
+      const [_, year, month, day] = match;
+      const parsedDate = new Date(
+        parseInt(year),
+        parseInt(month) - 1,
+        parseInt(day)
+      );
+      if (!isNaN(parsedDate.getTime())) {
+        return parsedDate;
+      }
+    }
+
+    return null;
+  }
+
+  private isValidDate(dateStr: string): boolean {
+    return this.parseDate(dateStr) !== null;
+  }
+
+  private validateDateRange(
+    dateFrom: string,
+    dateTo: string | null
+  ): ValidationError | null {
+    const fromDate = this.parseDate(dateFrom);
+    if (!fromDate) {
+      return {
+        rowNumber: -1, // Will be updated by caller
+        reason: "Invalid date format in DateFrom. Expected YYYY-MM-DD",
+      };
+    }
+
+    if (!dateTo) {
+      return null; // No DateTo is valid, will be replaced with current date
+    }
+
+    const toDate = this.parseDate(dateTo);
+    if (!toDate) {
+      return {
+        rowNumber: -1,
+        reason: "Invalid date format in DateTo. Expected YYYY-MM-DD",
+      };
+    }
+
+    if (fromDate > toDate) {
+      return {
+        rowNumber: -1,
+        reason: "DateFrom is later than DateTo",
+      };
+    }
+
+    return null;
   }
 
   private validateDataTypes(records: CsvRecord[]): ValidationError[] {
@@ -100,18 +157,11 @@ export class CollaborationController {
         });
       }
 
-      if (!this.isValidDate(record.dateFrom)) {
-        invalidRows.push({
-          rowNumber: index + 1,
-          reason: "DateFrom must be a valid date in YYYY-MM-DD format",
-        });
-      }
-
-      if (record.dateTo !== null && !this.isValidDate(record.dateTo)) {
-        invalidRows.push({
-          rowNumber: index + 1,
-          reason: "DateTo must be a valid date in YYYY-MM-DD format",
-        });
+      // Date validations
+      const dateError = this.validateDateRange(record.dateFrom, record.dateTo);
+      if (dateError) {
+        dateError.rowNumber = index + 1;
+        invalidRows.push(dateError);
       }
     });
 
@@ -172,22 +222,11 @@ export class CollaborationController {
       };
     }
 
-    if (!this.isValidDate(dateFrom)) {
-      return {
-        rowNumber,
-        reason: "DateFrom must be a valid date in YYYY-MM-DD format",
-      };
-    }
-
-    if (
-      dateTo &&
-      !this.isEmptyOrUndefined(dateTo) &&
-      !this.isValidDate(dateTo)
-    ) {
-      return {
-        rowNumber,
-        reason: "DateTo must be a valid date in YYYY-MM-DD format",
-      };
+    // Date validations
+    const dateError = this.validateDateRange(dateFrom, dateTo || null);
+    if (dateError) {
+      dateError.rowNumber = rowNumber;
+      return dateError;
     }
 
     return {
