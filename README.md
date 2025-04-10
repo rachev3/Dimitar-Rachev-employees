@@ -102,8 +102,31 @@ _Collaboration endpoints and logic details will be covered in separate documenta
 
 3. **Configure environment variables**
 
-   - Create a `.env` file in the root directory based on the provided example
-   - Required variables: PORT, MONGODB_URI, JWT_SECRET, JWT_EXPIRATION, ADMIN_USERNAME, ADMIN_PASSWORD
+   Create a `.env` file in the root directory with the following variables:
+
+   ```env
+   # Server Configuration
+   PORT=3000                                    # Port number for the server
+   NODE_ENV=development                         # Environment (development/production)
+
+   # MongoDB Configuration
+   MONGODB_URI=mongodb://localhost:27017/employee-collaboration    # MongoDB connection string
+
+   # Authentication
+   JWT_SECRET=your_very_long_and_secure_secret  # Secret key for JWT tokens
+   JWT_EXPIRATION=2h                            # JWT token expiration time
+
+   # Admin Account
+   ADMIN_USERNAME=admin                         # Default admin username
+   ADMIN_PASSWORD=admin123                      # Default admin password
+
+   All variables are required for the application to function properly. Make sure to:
+
+   - Use a strong, unique JWT_SECRET in production
+   - Change default admin credentials in production
+   - Update MONGODB_URI to point to your MongoDB instance
+
+   ```
 
 4. **Run development server**
 
