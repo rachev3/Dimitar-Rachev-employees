@@ -5,6 +5,7 @@ export class AppError extends Error {
   value?: any;
   code?: string;
   type?: string;
+  invalidRows?: Array<{ rowNumber: number; reason: string }>;
 
   constructor(
     statusCode: number,
@@ -15,6 +16,7 @@ export class AppError extends Error {
       value?: any;
       code?: string;
       type?: string;
+      invalidRows?: Array<{ rowNumber: number; reason: string }>;
     } = {}
   ) {
     super(message);
@@ -24,6 +26,7 @@ export class AppError extends Error {
     this.value = properties.value;
     this.code = properties.code;
     this.type = properties.type;
+    this.invalidRows = properties.invalidRows;
 
     Error.captureStackTrace(this, this.constructor);
   }
@@ -89,5 +92,18 @@ export class InputValidationError extends AppError {
   constructor(message: string) {
     super(400, message, true, { type: "InputValidationError" });
     this.name = "InputValidationError";
+  }
+}
+
+export class ParsingError extends AppError {
+  constructor(
+    message: string,
+    invalidRows: Array<{ rowNumber: number; reason: string }>
+  ) {
+    super(400, message, true, {
+      type: "ParsingError",
+      invalidRows,
+    });
+    this.name = "ParsingError";
   }
 }

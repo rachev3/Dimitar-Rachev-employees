@@ -10,15 +10,13 @@ import type { Request, Response, NextFunction } from "express";
 import { Service } from "typedi";
 import multer from "multer";
 import { CollaborationService } from "../services/CollaborationService";
-import { InputValidationError } from "../utils/errors";
+import { InputValidationError, ParsingError } from "../utils/errors";
 
-// Set up multer with file size limit (10MB) and file filter
 const upload = multer({
   limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB
+    fileSize: 10 * 1024 * 1024,
   },
   fileFilter: (req, file, cb) => {
-    // Check if it's a CSV file
     if (
       file.mimetype !== "text/csv" &&
       !file.originalname.toLowerCase().endsWith(".csv")
@@ -32,7 +30,6 @@ const upload = multer({
   },
 });
 
-// Custom middleware to handle multer errors
 const handleMulterErrors = (
   err: any,
   req: Request,
@@ -50,10 +47,108 @@ const handleMulterErrors = (
   next(err);
 };
 
+interface CsvRecord {
+  employeeId: string;
+  projectId: string;
+  dateFrom: string;
+  dateTo: string | null;
+}
+
+interface ValidationError {
+  rowNumber: number;
+  reason: string;
+}
+
 @Service()
 @JsonController("/collaboration")
 export class CollaborationController {
   constructor(private collaborationService: CollaborationService) {}
+
+  private isEmptyOrUndefined(value: string): boolean {
+    const trimmed = value.trim().toLowerCase();
+    return !trimmed || trimmed === "undefined" || trimmed === "null";
+  }
+
+  private validateRow(
+    line: string,
+    rowNumber: number
+  ): CsvRecord | ValidationError {
+    if (!line.includes(",")) {
+      return {
+        rowNumber,
+        reason: "No comma delimiter found in row",
+      };
+    }
+
+    const values = line.split(",").map((item) => item.trim());
+
+    if (values.length !== 4) {
+      return {
+        rowNumber,
+        reason: `Expected 4 columns but found ${values.length}`,
+      };
+    }
+
+    const [empId, projectId, dateFrom, dateTo] = values;
+
+    if (!empId) {
+      return {
+        rowNumber,
+        reason: "Missing EmpID",
+      };
+    }
+    if (!projectId) {
+      return {
+        rowNumber,
+        reason: "Missing ProjectID",
+      };
+    }
+    if (!dateFrom) {
+      return {
+        rowNumber,
+        reason: "Missing DateFrom",
+      };
+    }
+
+    return {
+      employeeId: empId,
+      projectId: projectId,
+      dateFrom: dateFrom,
+      dateTo: this.isEmptyOrUndefined(dateTo) ? null : dateTo,
+    };
+  }
+
+  private validateCsvFormat(lines: string[]): CsvRecord[] {
+    const nonEmptyLines = lines.filter((line) => line.trim());
+
+    if (nonEmptyLines.length === 0) {
+      throw new InputValidationError(
+        "The provided file is empty or contains only blank lines"
+      );
+    }
+
+    const invalidRows: ValidationError[] = [];
+    const validRecords: CsvRecord[] = [];
+
+    for (let i = 0; i < nonEmptyLines.length; i++) {
+      const result = this.validateRow(nonEmptyLines[i], i + 1);
+
+      if ("reason" in result) {
+        invalidRows.push(result);
+      } else {
+        validRecords.push(result);
+      }
+    }
+
+    if (invalidRows.length > 0) {
+      throw new ParsingError(
+        "Malformed CSV: Invalid column count detected.",
+        invalidRows
+      );
+    }
+
+    return validRecords;
+  }
 
   @Post("/analyze")
   @Authorized()
@@ -67,26 +162,8 @@ export class CollaborationController {
 
       const fileContent = request.file.buffer.toString();
 
-      // Check if file is empty
-      if (!fileContent.trim()) {
-        throw new InputValidationError("The provided file is empty");
-      }
-
       const lines = fileContent.split("\n");
-
-      const records = lines
-        .filter((line) => line.trim())
-        .map((line) => {
-          const [empId, projectId, dateFrom, dateTo] = line
-            .split(",")
-            .map((item) => item.trim());
-          return {
-            employeeId: empId,
-            projectId: projectId,
-            dateFrom: dateFrom,
-            dateTo: dateTo === "undefined" ? null : dateTo,
-          };
-        });
+      const records = this.validateCsvFormat(lines);
 
       const longestCollaboration =
         this.collaborationService.findLongestCollaboration(records);
@@ -104,12 +181,13 @@ export class CollaborationController {
         },
       };
     } catch (error: unknown) {
-      // Re-throw InputValidationError as is
-      if (error instanceof InputValidationError) {
+      if (
+        error instanceof InputValidationError ||
+        error instanceof ParsingError
+      ) {
         throw error;
       }
 
-      // For any other errors, throw a generic error
       throw new InputValidationError(
         error instanceof Error ? error.message : "Failed to process CSV file"
       );

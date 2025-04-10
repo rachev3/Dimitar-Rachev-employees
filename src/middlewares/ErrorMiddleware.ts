@@ -4,7 +4,7 @@ import {
   ExpressErrorMiddlewareInterface,
 } from "routing-controllers";
 import { Service } from "typedi";
-import { AppError, InputValidationError } from "../utils/errors";
+import { AppError, InputValidationError, ParsingError } from "../utils/errors";
 import { ENV } from "../config/env";
 
 interface ErrorResponse {
@@ -13,6 +13,7 @@ interface ErrorResponse {
   error: {
     type: string;
     statusCode: number;
+    invalidRows?: Array<{ rowNumber: number; reason: string }>;
     details?: any;
     path?: string;
     value?: any;
@@ -31,7 +32,7 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
 
     const response: ErrorResponse = {
       success: false,
-      message: "Internal server error",
+      message: error.message || "Internal server error",
       error: {
         type: "InternalServerError",
         statusCode: 500,
@@ -39,11 +40,15 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
     };
 
     if (error instanceof AppError) {
-      response.message = error.message;
       response.error = {
         type: error.type || error.name,
         statusCode: error.statusCode,
       };
+
+      // Add invalidRows if present (for ParsingError)
+      if (error.invalidRows) {
+        response.error.invalidRows = error.invalidRows;
+      }
 
       // Add any additional error details if they exist
       if (error.path) response.error.path = error.path;
@@ -52,16 +57,9 @@ export class ErrorMiddleware implements ExpressErrorMiddlewareInterface {
       if (error instanceof InputValidationError) {
         response.error.type = "InputValidationError";
       }
-
-      return res.status(error.statusCode).json(response);
     }
 
-    // Handle unknown errors
-    if (ENV.NODE_ENV === "development") {
-      console.error("Unhandled error:", error);
-    }
-
-    return res.status(500).json(response);
+    return res.status(response.error.statusCode).json(response);
   }
 
   static catchAsync(
