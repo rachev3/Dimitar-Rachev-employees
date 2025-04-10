@@ -10,7 +10,11 @@ import type { Request, Response, NextFunction } from "express";
 import { Service } from "typedi";
 import multer from "multer";
 import { CollaborationService } from "../services/CollaborationService";
-import { InputValidationError, ParsingError } from "../utils/errors";
+import {
+  InputValidationError,
+  ParsingError,
+  DataValidationError,
+} from "../utils/errors";
 
 const upload = multer({
   limits: {
@@ -69,6 +73,51 @@ export class CollaborationController {
     return !trimmed || trimmed === "undefined" || trimmed === "null";
   }
 
+  private isValidId(value: string): boolean {
+    return /^\d+$/.test(value.trim());
+  }
+
+  private isValidDate(dateStr: string): boolean {
+    const date = new Date(dateStr);
+    return date instanceof Date && !isNaN(date.getTime());
+  }
+
+  private validateDataTypes(records: CsvRecord[]): ValidationError[] {
+    const invalidRows: ValidationError[] = [];
+
+    records.forEach((record, index) => {
+      if (!this.isValidId(record.employeeId)) {
+        invalidRows.push({
+          rowNumber: index + 1,
+          reason: "EmpID must be a valid number",
+        });
+      }
+
+      if (!this.isValidId(record.projectId)) {
+        invalidRows.push({
+          rowNumber: index + 1,
+          reason: "ProjectID must be a valid number",
+        });
+      }
+
+      if (!this.isValidDate(record.dateFrom)) {
+        invalidRows.push({
+          rowNumber: index + 1,
+          reason: "DateFrom must be a valid date in YYYY-MM-DD format",
+        });
+      }
+
+      if (record.dateTo !== null && !this.isValidDate(record.dateTo)) {
+        invalidRows.push({
+          rowNumber: index + 1,
+          reason: "DateTo must be a valid date in YYYY-MM-DD format",
+        });
+      }
+    });
+
+    return invalidRows;
+  }
+
   private validateRow(
     line: string,
     rowNumber: number
@@ -110,6 +159,37 @@ export class CollaborationController {
       };
     }
 
+    if (!this.isValidId(empId)) {
+      return {
+        rowNumber,
+        reason: "EmpID must be a valid number",
+      };
+    }
+    if (!this.isValidId(projectId)) {
+      return {
+        rowNumber,
+        reason: "ProjectID must be a valid number",
+      };
+    }
+
+    if (!this.isValidDate(dateFrom)) {
+      return {
+        rowNumber,
+        reason: "DateFrom must be a valid date in YYYY-MM-DD format",
+      };
+    }
+
+    if (
+      dateTo &&
+      !this.isEmptyOrUndefined(dateTo) &&
+      !this.isValidDate(dateTo)
+    ) {
+      return {
+        rowNumber,
+        reason: "DateTo must be a valid date in YYYY-MM-DD format",
+      };
+    }
+
     return {
       employeeId: empId,
       projectId: projectId,
@@ -142,8 +222,16 @@ export class CollaborationController {
 
     if (invalidRows.length > 0) {
       throw new ParsingError(
-        "Malformed CSV: Invalid column count detected.",
+        "Malformed CSV: Invalid column count or format detected.",
         invalidRows
+      );
+    }
+
+    const dataTypeErrors = this.validateDataTypes(validRecords);
+    if (dataTypeErrors.length > 0) {
+      throw new DataValidationError(
+        "Data validation error: Some rows contain invalid data types.",
+        dataTypeErrors
       );
     }
 
@@ -183,7 +271,8 @@ export class CollaborationController {
     } catch (error: unknown) {
       if (
         error instanceof InputValidationError ||
-        error instanceof ParsingError
+        error instanceof ParsingError ||
+        error instanceof DataValidationError
       ) {
         throw error;
       }

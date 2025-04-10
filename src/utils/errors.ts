@@ -107,3 +107,16 @@ export class ParsingError extends AppError {
     this.name = "ParsingError";
   }
 }
+
+export class DataValidationError extends AppError {
+  constructor(
+    message: string,
+    invalidRows: Array<{ rowNumber: number; reason: string }>
+  ) {
+    super(400, message, true, {
+      type: "DataValidationError",
+      invalidRows,
+    });
+    this.name = "DataValidationError";
+  }
+}
