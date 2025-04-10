@@ -1,13 +1,13 @@
 import { Service } from "typedi";
 
-interface EmployeeAssignment {
+interface CsvRecord {
   employeeId: string;
   projectId: string;
   dateFrom: string;
   dateTo: string | null;
 }
 
-interface EmployeePair {
+interface CollaborationPair {
   employee1Id: string;
   employee2Id: string;
   totalDays: number;
@@ -15,137 +15,91 @@ interface EmployeePair {
 
 @Service()
 export class CollaborationService {
-  findLongestCollaboration(records: EmployeeAssignment[]): EmployeePair | null {
-    if (!records || records.length < 2) {
-      return null;
+  private parseDate(dateStr: string | null): Date {
+    if (!dateStr) {
+      return new Date(); // Use current date for null/undefined DateTo
     }
-
-    const processedRecords = this.processRecords(records);
-
-    const projectGroups = this.groupByProject(processedRecords);
-
-    const employeePairsMap = this.computeOverlaps(projectGroups);
-
-    return this.findMaxOverlap(employeePairsMap);
+    return new Date(dateStr);
   }
 
-  private processRecords(records: EmployeeAssignment[]): EmployeeAssignment[] {
-    const currentDate = new Date().toISOString().split("T")[0];
-
-    return records.map((record) => {
-      const processed = { ...record };
-
-      if (!processed.dateTo) {
-        processed.dateTo = currentDate;
-      }
-
-      return processed;
-    });
-  }
-
-  private groupByProject(
-    records: EmployeeAssignment[]
-  ): Record<string, EmployeeAssignment[]> {
-    const groups: Record<string, EmployeeAssignment[]> = {};
-
-    for (const record of records) {
-      if (!groups[record.projectId]) {
-        groups[record.projectId] = [];
-      }
-      groups[record.projectId].push(record);
-    }
-
-    return groups;
-  }
-
-  private daysBetween(date1: string, date2: string): number {
-    const d1 = new Date(date1);
-    const d2 = new Date(date2);
-
-    if (isNaN(d1.getTime()) || isNaN(d2.getTime())) {
-      return 0;
-    }
-
-    const timeDiff = Math.abs(d2.getTime() - d1.getTime());
-
-    return Math.round(timeDiff / (1000 * 3600 * 24));
-  }
-
-  private calculateOverlap(
-    assignment1: EmployeeAssignment,
-    assignment2: EmployeeAssignment
+  private calculateOverlapDays(
+    start1: Date,
+    end1: Date,
+    start2: Date,
+    end2: Date
   ): number {
-    const start1 = assignment1.dateFrom;
-    const end1 = assignment1.dateTo!;
-    const start2 = assignment2.dateFrom;
-    const end2 = assignment2.dateTo!;
+    // Handle boundary condition: if one period ends exactly when another begins
+    if (
+      end1.getTime() === start2.getTime() ||
+      end2.getTime() === start1.getTime()
+    ) {
+      return 1; // Count as 1 day overlap
+    }
 
-    const overlapStart = new Date(start1) > new Date(start2) ? start1 : start2;
-    const overlapEnd = new Date(end1) < new Date(end2) ? end1 : end2;
-
-    if (new Date(overlapStart) > new Date(overlapEnd)) {
+    // No overlap if one period ends before another starts
+    if (end1 < start2 || end2 < start1) {
       return 0;
     }
-    return this.daysBetween(overlapStart, overlapEnd);
+
+    // Calculate overlap period
+    const overlapStart = new Date(Math.max(start1.getTime(), start2.getTime()));
+    const overlapEnd = new Date(Math.min(end1.getTime(), end2.getTime()));
+
+    // Calculate days between dates (inclusive of both start and end)
+    const diffTime = Math.abs(overlapEnd.getTime() - overlapStart.getTime());
+    return Math.ceil(diffTime / (1000 * 60 * 60 * 24)) + 1;
   }
 
-  private computeOverlaps(
-    projectGroups: Record<string, EmployeeAssignment[]>
-  ): Map<string, EmployeePair> {
-    const pairsMap = new Map<string, EmployeePair>();
+  findLongestCollaboration(records: CsvRecord[]): CollaborationPair | null {
+    // Group records by project
+    const projectGroups = new Map<string, CsvRecord[]>();
+    records.forEach((record) => {
+      const existing = projectGroups.get(record.projectId) || [];
+      projectGroups.set(record.projectId, [...existing, record]);
+    });
 
-    for (const projectId in projectGroups) {
-      const assignments = projectGroups[projectId];
+    let maxOverlap = 0;
+    let result: CollaborationPair | null = null;
 
-      for (let i = 0; i < assignments.length; i++) {
-        for (let j = i + 1; j < assignments.length; j++) {
-          const emp1 = assignments[i];
-          const emp2 = assignments[j];
+    // Process each project group
+    for (const [projectId, projectRecords] of projectGroups) {
+      // Calculate overlaps for each pair of employees in the project
+      for (let i = 0; i < projectRecords.length; i++) {
+        for (let j = i + 1; j < projectRecords.length; j++) {
+          const record1 = projectRecords[i];
+          const record2 = projectRecords[j];
 
-          if (emp1.employeeId === emp2.employeeId) {
+          // Skip if it's the same employee
+          if (record1.employeeId === record2.employeeId) {
             continue;
           }
 
-          const [employee1Id, employee2Id] = [
-            emp1.employeeId,
-            emp2.employeeId,
-          ].sort();
-          const pairKey = `${employee1Id}-${employee2Id}`;
+          // Calculate overlap days
+          const start1 = this.parseDate(record1.dateFrom);
+          const end1 = this.parseDate(record1.dateTo);
+          const start2 = this.parseDate(record2.dateFrom);
+          const end2 = this.parseDate(record2.dateTo);
 
-          const overlapDays = this.calculateOverlap(emp1, emp2);
+          const overlapDays = this.calculateOverlapDays(
+            start1,
+            end1,
+            start2,
+            end2
+          );
 
-          if (overlapDays > 0) {
-            if (!pairsMap.has(pairKey)) {
-              pairsMap.set(pairKey, {
-                employee1Id,
-                employee2Id,
-                totalDays: 0,
-              });
-            }
-
-            const pairData = pairsMap.get(pairKey)!;
-            pairData.totalDays += overlapDays;
+          // Update result if this is the longest collaboration
+          if (overlapDays > maxOverlap) {
+            maxOverlap = overlapDays;
+            result = {
+              employee1Id: record1.employeeId,
+              employee2Id: record2.employeeId,
+              totalDays: overlapDays,
+            };
           }
         }
       }
     }
 
-    return pairsMap;
-  }
-
-  private findMaxOverlap(
-    pairsMap: Map<string, EmployeePair>
-  ): EmployeePair | null {
-    let maxPair: EmployeePair | null = null;
-    let maxDays = 0;
-
-    for (const [_, pair] of pairsMap.entries()) {
-      if (pair.totalDays > maxDays) {
-        maxDays = pair.totalDays;
-        maxPair = pair;
-      }
-    }
-
-    return maxPair;
+    return result;
   }
 }

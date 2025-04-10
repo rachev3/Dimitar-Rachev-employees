@@ -361,16 +361,21 @@ export class CollaborationController {
         this.collaborationService.findLongestCollaboration(records);
 
       if (!longestCollaboration) {
-        return [];
+        return {
+          success: true,
+          message:
+            "No overlapping work periods found between any pair of employees.",
+          result: [],
+        };
       }
 
       return {
         success: true,
-        longestCollaboration: {
-          employee1Id: longestCollaboration.employee1Id,
-          employee2Id: longestCollaboration.employee2Id,
-          totalDays: longestCollaboration.totalDays,
-        },
+        result: [
+          longestCollaboration.employee1Id,
+          longestCollaboration.employee2Id,
+          longestCollaboration.totalDays,
+        ],
       };
     } catch (error: unknown) {
       if (
