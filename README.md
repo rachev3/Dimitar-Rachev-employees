@@ -68,7 +68,7 @@ All required environment variables are defined in the Docker Compose files. For 
 
 3. **Building for production**
    ```bash
-   docker build -t blackdeep-tech:latest .
+   docker build -t employees:latest .
    ```
 
 ## 📋 Technology Stack
@@ -150,7 +150,6 @@ _Collaboration endpoints and logic details will be covered in separate documenta
 
    ```bash
    git clone https://github.com/rachev3/Dimitar-Rachev-employees.git
-   cd blackdeep-tech
    ```
 
 2. **Install dependencies**
