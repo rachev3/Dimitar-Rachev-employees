@@ -1,0 +1,34 @@
+version: "3.8"
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    ports:
+      - "3000:3000"
+    depends_on:
+      - mongodb
+    environment:
+      - NODE_ENV=development
+      - PORT=3000
+      - MONGODB_URI=mongodb://mongodb:27017/employee-collaboration
+      - JWT_SECRET=development_secret_key_replace_in_production
+      - JWT_EXPIRATION=2h
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=admin123
+    volumes:
+      - ./:/app
+      - /app/node_modules
+    restart: unless-stopped
+
+  mongodb:
+    image: mongo:6
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    restart: unless-stopped
+
+volumes:
+  mongodb_data:

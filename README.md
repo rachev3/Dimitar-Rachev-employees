@@ -12,6 +12,65 @@ A robust Node.js backend application for project management with user authentica
 - **Error Handling**: Comprehensive error handling system
 - **Logging**: Request logging middleware
 
+## 🐳 Docker Setup
+
+### Prerequisites
+
+- [Docker](https://docs.docker.com/get-docker/)
+- [Docker Compose](https://docs.docker.com/compose/install/)
+
+### Running with Docker Compose
+
+#### Development Mode (with hot-reloading)
+
+```bash
+docker-compose -f docker-compose.dev.yml up
+```
+
+This will:
+
+- Build a development container with hot-reloading enabled
+- Start a MongoDB container
+- Mount your local code to the container for live code changes
+- Expose the app on port 3000
+
+#### Production Mode
+
+```bash
+docker-compose up
+```
+
+This will:
+
+- Build a production-ready container
+- Start a MongoDB container
+- Run the compiled version of the app
+- Expose the app on port 3000
+
+### Environment Variables
+
+All required environment variables are defined in the Docker Compose files. For production deployments, you should modify these variables, particularly the `JWT_SECRET`.
+
+### Docker Deployment Tips
+
+1. **Custom MongoDB URI**
+
+   ```bash
+   docker-compose up -d mongodb
+   docker-compose run -e MONGODB_URI=mongodb://custom-uri app
+   ```
+
+2. **Running tests in Docker**
+
+   ```bash
+   docker-compose run app npm test
+   ```
+
+3. **Building for production**
+   ```bash
+   docker build -t blackdeep-tech:latest .
+   ```
+
 ## 📋 Technology Stack
 
 - **Node.js**: JavaScript runtime
